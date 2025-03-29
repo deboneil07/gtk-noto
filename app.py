@@ -106,22 +106,34 @@ class gtkNote(Gtk.Window):
             cursor_mark = self.text_buffer.get_insert()
             cursor = self.text_buffer.get_iter_at_mark(cursor_mark)
 
-            # Check if active and at the start of a line
-            if self.is_unordered_active and cursor.starts_line():
-                self.text_buffer.insert_at_cursor("- ")
+            # Insert appropriate Markdown syntax based on active button
+            if self.is_unordered_active:
+                self.text_buffer.insert_at_cursor("\n- ")
+                # Move cursor to end of inserted text
+                new_cursor = self.text_buffer.get_iter_at_mark(cursor)
+                new_cursor.forward_chars(2)  # Move past "- "
+                self.text_buffer.place_cursor(new_cursor)
                 return True  # Prevent default Enter behavior
-            elif self.is_ordered_active and cursor.starts_line():
-                self.text_buffer.insert_at_cursor(f"{self.current_ordered_count}. ")
+
+            elif self.is_ordered_active:
+                self.text_buffer.insert_at_cursor(f"\n{self.current_ordered_count}. ")
+                # Increment ordered list count for next item
                 self.current_ordered_count += 1
+                # Move cursor to end of inserted text
+                new_cursor = self.text_buffer.get_iter_at_mark(cursor)
+                new_cursor.forward_chars(len(str(self.current_ordered_count)) + 2)  # Move past "X. "
+                self.text_buffer.place_cursor(new_cursor)
                 return True
-            elif self.is_checkbox_active and cursor.starts_line():
-                self.text_buffer.insert_at_cursor("- [ ] ")
+
+            elif self.is_checkbox_active:
+                self.text_buffer.insert_at_cursor("\n- [ ] ")
+                # Move cursor to end of inserted text
+                new_cursor = self.text_buffer.get_iter_at_mark(cursor)
+                new_cursor.forward_chars(6)  # Move past "- [ ] "
+                self.text_buffer.place_cursor(new_cursor)
                 return True
 
         return False  # Allow default Enter behavior otherwise
-
-
-
 
     # def insert_text(self, widget, text):
     #         #inserting markdown syntax at cursor position
