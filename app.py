@@ -1,11 +1,11 @@
 import gi
+import markdown
+import markdown_checklist
+import re
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("WebKit2", "4.0")
 from gi.repository import Gtk, WebKit2, Gdk
-import markdown
-import markdown_checklist
-
 
 class gtkNote(Gtk.Window):
     def __init__(self):
@@ -66,6 +66,7 @@ class gtkNote(Gtk.Window):
         # Enable JavaScript in WebView settings
         settings = self.webview.get_settings()
         settings.set_enable_javascript(True)  # Enable JavaScript for interactivity
+        self.webview.set_settings(settings)
 
         scrolled_preview = Gtk.ScrolledWindow()
         scrolled_preview.add(self.webview)
@@ -121,52 +122,60 @@ class gtkNote(Gtk.Window):
                 return True
 
     def render_markdown(self, widget):
-        # Get Markdown text
+        # Get Markdown text from the buffer
         start = self.text_buffer.get_start_iter()
         end = self.text_buffer.get_end_iter()
         md_text = self.text_buffer.get_text(start, end, False)
 
-        # Preprocess Markdown content to ensure proper formatting
-        md_text = self.preprocess_markdown(md_text)
+        # Convert checklist items into proper list format
+        checklist_items = re.findall(r'- \[ \](.*)', md_text)
 
-        # Convert to HTML using markdown-checklist extension
-        html_output = markdown.markdown(
-            md_text,
-            extensions=['markdown_checklist.extension']
-        )
+        # Generate HTML list for checklists
+        if checklist_items:
+            checklist_html = "<ul>"
+            for item in checklist_items:
+                checklist_html += f'<li><button class="task-btn">Pending</button> {item}</li>'
+            checklist_html += "</ul>"
+            md_text = re.sub(r'(- \[ \].*)', '', md_text)  # Remove original checklist lines
+        else:
+            checklist_html = ""
 
-        # Include JavaScript for interactive checkboxes and strikethrough logic
+        # Convert the remaining Markdown to HTML
+        md_html = markdown.markdown(md_text)
+
+        # JavaScript for toggling button state
         checklist_js = """
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script>
-        $(document).ready(function() {
-            $('input[type="checkbox"]').on('change', function() {
-                const isChecked = $(this).prop('checked');
-                const parentLi = $(this).closest('li');
-                if (isChecked) {
-                    parentLi.css('text-decoration', 'line-through');
-                } else {
-                    parentLi.css('text-decoration', 'none');
-                }
+        document.addEventListener("DOMContentLoaded", function() {
+            document.querySelectorAll(".task-btn").forEach(function(btn) {
+                btn.addEventListener("click", function() {
+                    if (btn.innerText === "Pending") {
+                        btn.innerText = "Done";
+                    } else {
+                        btn.innerText = "Pending";
+                    }
+                });
             });
         });
         </script>
         """
 
+        # Full HTML output
         full_html = f"""
         <html>
             <head>
                 <meta charset="utf-8">
             </head>
             <body>
-                {html_output}
+                {md_html}
+                {checklist_html}  <!-- Ensure checklist appears after the Markdown -->
                 {checklist_js}
             </body>
         </html>
         """
 
-        # Display in WebView
-        self.webview.load_html(full_html, "file:///")
+        # Load into WebView
+        self.webview.load_html(full_html, "about:blank")
 
     def preprocess_markdown(self, md_text):
         """
